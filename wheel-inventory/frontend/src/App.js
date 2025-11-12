@@ -110,15 +110,32 @@ function App() {
 
   // Camera Barcode Scanner with Quagga.js
   const startCameraScanner = async () => {
-    if (quaggaInitialized.current) return;
+    if (quaggaInitialized.current) {
+      console.log('Quagga already initialized');
+      return;
+    }
     
     setIsCameraActive(true);
-    setScanStatus('Starting camera...');
+    setScanStatus('Requesting camera access...');
     
     try {
       // Check if Quagga is available
       if (!window.Quagga) {
         throw new Error('Quagga library not loaded. Please refresh the page.');
+      }
+
+      console.log('Starting Quagga initialization...');
+
+      // First, request camera permission explicitly
+      try {
+        await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
+        console.log('Camera permission granted');
+        setScanStatus('Starting scanner...');
+      } catch (permErr) {
+        console.error('Camera permission denied:', permErr);
+        throw new Error('Camera permission denied. Please allow camera access in your browser settings.');
       }
 
       const constraints = {
@@ -159,16 +176,25 @@ function App() {
       window.Quagga.init(constraints, function(err) {
         if (err) {
           console.error('Quagga initialization error:', err);
-          setError('Unable to start camera. Please check permissions and try again.');
+          setError(`Unable to start camera: ${err.message || 'Unknown error'}`);
           setIsCameraActive(false);
           setScanStatus('');
           return;
         }
         
-        console.log("Quagga initialization finished. Ready to start");
-        window.Quagga.start();
-        quaggaInitialized.current = true;
-        setScanStatus('Scanning... Point camera at barcode');
+        console.log("Quagga initialization finished. Starting...");
+        
+        try {
+          window.Quagga.start();
+          quaggaInitialized.current = true;
+          setScanStatus('Scanning... Point camera at barcode');
+          console.log('Quagga started successfully');
+        } catch (startErr) {
+          console.error('Quagga start error:', startErr);
+          setError('Failed to start scanner');
+          setIsCameraActive(false);
+          setScanStatus('');
+        }
       });
 
       // Handle detected barcodes
@@ -188,7 +214,7 @@ function App() {
 
     } catch (err) {
       console.error('Camera access error:', err);
-      setError('Unable to access camera. Please check permissions: Settings → Safari → Camera');
+      setError(err.message || 'Unable to access camera. Please check permissions: Settings → Safari → Camera');
       setIsCameraActive(false);
       setScanStatus('');
     }
