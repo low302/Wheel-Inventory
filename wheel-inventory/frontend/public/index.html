@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#2563eb" />
     <meta name="description" content="OEM Subaru Wheel Inventory Management System with Barcode Scanning" />
-    <title>Wheel Inventory System v2.2 - Barcode Scanning</title>
+    <title>Wheel Inventory System v2.2.1 - Barcode Scanning</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
@@ -36,6 +36,32 @@
         animation: spin 1s linear infinite;
       }
 
+      /* Quagga.js camera styles */
+      #barcode-scanner {
+        position: relative;
+      }
+
+      #barcode-scanner video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      #barcode-scanner canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+
+      /* Scanline overlay */
+      #barcode-scanner canvas.drawingBuffer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
       @media print {
         body * {
           visibility: hidden;
@@ -50,6 +76,20 @@
         }
       }
     </style>
+
+    <script>
+      // Make Quagga available globally
+      window.Quagga = window.QuaggaJS;
+      
+      // Log when Quagga is loaded
+      window.addEventListener('load', function() {
+        if (window.Quagga) {
+          console.log('✅ Quagga.js loaded successfully for barcode scanning');
+        } else {
+          console.error('❌ Quagga.js failed to load');
+        }
+      });
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
