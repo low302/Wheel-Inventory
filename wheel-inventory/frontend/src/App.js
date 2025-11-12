@@ -8,11 +8,19 @@ function App() {
   const [activeTab, setActiveTab] = useState('available');
   const [showModal, setShowModal] = useState(false);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(false);
   const [selectedWheel, setSelectedWheel] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [modelFilter, setModelFilter] = useState('');
+  const [scanMode, setScanMode] = useState('usb'); // 'usb' or 'camera'
+  const [scannedCode, setScannedCode] = useState('');
+  const [scanBuffer, setScanBuffer] = useState('');
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const barcodeRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const scanTimeoutRef = useRef(null);
   const [formData, setFormData] = useState({
     part_number: '',
     size: '',
@@ -34,6 +42,145 @@ function App() {
       generateBarcode();
     }
   }, [showBarcodeModal, selectedWheel]);
+
+  // USB Barcode Scanner Handler
+  useEffect(() => {
+    if (!showScanModal || scanMode !== 'usb') return;
+
+    const handleKeyPress = (e) => {
+      // Ignore if user is typing in an input field
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      // Clear previous timeout
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+      }
+
+      // USB scanners typically end with Enter key
+      if (e.key === 'Enter') {
+        if (scanBuffer.length >= 12) { // UPC-A is 12 digits
+          handleScannedBarcode(scanBuffer);
+          setScanBuffer('');
+        }
+      } else if (e.key.length === 1) {
+        // Add character to buffer
+        setScanBuffer(prev => prev + e.key);
+        
+        // Auto-clear buffer after 100ms of no input (scanner types fast)
+        scanTimeoutRef.current = setTimeout(() => {
+          setScanBuffer('');
+        }, 100);
+      }
+    };
+
+    window.addEventListener('keypress', handleKeyPress);
+    return () => {
+      window.removeEventListener('keypress', handleKeyPress);
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+      }
+    };
+  }, [showScanModal, scanMode, scanBuffer]);
+
+  const handleScannedBarcode = async (code) => {
+    setScannedCode(code);
+    
+    // Search for wheel with this SKU
+    const wheel = wheels.find(w => w.sku === code);
+    
+    if (wheel) {
+      setSelectedWheel(wheel);
+      setShowScanModal(false);
+      
+      // Show a success message
+      setError(null);
+      alert(`Found wheel: ${wheel.model} ${wheel.year} - ${wheel.size}\nSKU: ${wheel.sku}\nPrice: $${wheel.retail_price}`);
+    } else {
+      setError(`No wheel found with SKU: ${code}`);
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
+  // Camera Barcode Scanner
+  const startCameraScanner = async () => {
+    setIsCameraActive(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment', // Use back camera on mobile
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+        
+        // Start scanning loop
+        scanBarcodeFromCamera();
+      }
+    } catch (err) {
+      console.error('Camera access error:', err);
+      setError('Unable to access camera. Please check permissions.');
+      setIsCameraActive(false);
+    }
+  };
+
+  const stopCameraScanner = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const scanBarcodeFromCamera = () => {
+    if (!videoRef.current || !canvasRef.current || !isCameraActive) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      
+      // Use jsQR library if available (we'll need to add this)
+      if (window.jsQR) {
+        const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+
+        if (code) {
+          handleScannedBarcode(code.data);
+          stopCameraScanner();
+          return;
+        }
+      }
+    }
+
+    // Continue scanning
+    if (isCameraActive) {
+      requestAnimationFrame(scanBarcodeFromCamera);
+    }
+  };
+
+  useEffect(() => {
+    if (showScanModal && scanMode === 'camera') {
+      startCameraScanner();
+    } else {
+      stopCameraScanner();
+    }
+
+    return () => {
+      stopCameraScanner();
+    };
+  }, [showScanModal, scanMode]);
 
   const generateBarcode = () => {
     if (!selectedWheel || !barcodeRef.current) return;
@@ -229,20 +376,34 @@ function App() {
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                 🚗 OEM Subaru Wheel Inventory
               </h1>
-              <p className="text-gray-400 mt-1 text-sm">Vision UI Dashboard - Professional Inventory Management v2.1</p>
+              <p className="text-gray-400 mt-1 text-sm">Vision UI Dashboard - Professional Inventory Management v2.2</p>
             </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="group relative px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl font-semibold text-white shadow-lg shadow-blue-500/50 hover:shadow-blue-500/75 transition-all duration-300 hover:scale-105"
-            >
-              <span className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Add New Wheel
-              </span>
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10 blur"></div>
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowScanModal(true)}
+                className="group relative px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl font-semibold text-white shadow-lg shadow-green-500/50 hover:shadow-green-500/75 transition-all duration-300 hover:scale-105"
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                  Scan Barcode
+                </span>
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-600 to-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10 blur"></div>
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                className="group relative px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl font-semibold text-white shadow-lg shadow-blue-500/50 hover:shadow-blue-500/75 transition-all duration-300 hover:scale-105"
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add New Wheel
+                </span>
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10 blur"></div>
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -488,7 +649,143 @@ function App() {
         )}
       </div>
 
-      {/* Barcode Modal */}
+      {/* Barcode Scanner Modal */}
+      {showScanModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-white/10 shadow-2xl max-w-2xl w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-white">Scan Barcode</h2>
+                <button
+                  onClick={() => {
+                    setShowScanModal(false);
+                    stopCameraScanner();
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Scan Mode Selector */}
+              <div className="mb-6 flex gap-3">
+                <button
+                  onClick={() => {
+                    setScanMode('usb');
+                    stopCameraScanner();
+                  }}
+                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                    scanMode === 'usb'
+                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg shadow-green-500/50'
+                      : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    USB Scanner
+                  </div>
+                </button>
+                <button
+                  onClick={() => setScanMode('camera')}
+                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                    scanMode === 'camera'
+                      ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/50'
+                      : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Camera Scanner
+                  </div>
+                </button>
+              </div>
+
+              {/* USB Scanner Mode */}
+              {scanMode === 'usb' && (
+                <div className="bg-gray-700/30 border border-white/10 rounded-xl p-8 text-center">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                  <h3 className="text-xl font-bold text-white mb-2">Ready to Scan</h3>
+                  <p className="text-gray-400 mb-4">
+                    Use your USB barcode scanner to scan a UPC-A barcode
+                  </p>
+                  {scanBuffer && (
+                    <div className="text-blue-400 font-mono text-sm mb-2">
+                      Scanning: {scanBuffer}
+                    </div>
+                  )}
+                  <div className="inline-flex items-center gap-2 text-sm text-gray-400 bg-gray-800/50 px-4 py-2 rounded-lg">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    Listening for scanner input...
+                  </div>
+                </div>
+              )}
+
+              {/* Camera Scanner Mode */}
+              {scanMode === 'camera' && (
+                <div className="bg-gray-700/30 border border-white/10 rounded-xl p-4">
+                  <div className="relative bg-black rounded-lg overflow-hidden" style={{paddingBottom: '56.25%'}}>
+                    <video
+                      ref={videoRef}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      autoPlay
+                      playsInline
+                    />
+                    <canvas
+                      ref={canvasRef}
+                      className="hidden"
+                    />
+                    {!isCameraActive && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-900/90">
+                        <div className="text-center">
+                          <svg className="w-16 h-16 mx-auto mb-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <p className="text-white">Camera Loading...</p>
+                        </div>
+                      </div>
+                    )}
+                    {isCameraActive && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="border-2 border-blue-500 w-64 h-32 rounded-lg shadow-lg shadow-blue-500/50"></div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-center text-gray-400 text-sm mt-4">
+                    Position barcode within the blue box
+                  </p>
+                  <p className="text-center text-gray-500 text-xs mt-2">
+                    Note: Camera scanning requires jsQR library. Make sure it's loaded in your HTML.
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowScanModal(false);
+                    stopCameraScanner();
+                  }}
+                  className="px-6 py-3 bg-gray-700/50 border border-white/10 rounded-xl text-gray-300 hover:bg-gray-700 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Barcode Display Modal */}
       {showBarcodeModal && selectedWheel && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-white/10 shadow-2xl max-w-2xl w-full">
@@ -564,7 +861,7 @@ function App() {
         </div>
       )}
 
-      {/* Add Wheel Modal */}
+      {/* Add Wheel Modal - Same as before */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-white/10 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -716,11 +1013,11 @@ function App() {
       <footer className="relative z-10 bg-gray-900/50 backdrop-blur-xl border-t border-white/10 mt-12">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
-            <p>© 2025 Wheel Inventory System v2.2 - Vision UI Design</p>
+            <p>© 2025 Wheel Inventory System v2.2 - Vision UI Design + Barcode Scanning</p>
             <div className="flex gap-6">
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                Automated Backups
+                Barcode Scanner
               </span>
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
@@ -729,10 +1026,6 @@ function App() {
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
                 PDF Labels
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></span>
-                Smart Barcodes
               </span>
             </div>
           </div>
