@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: wheel_inventory_db
+    environment:
+      POSTGRES_USER: wheeluser
+      POSTGRES_PASSWORD: wheelpass
+      POSTGRES_DB: wheel_inventory
+      # Performance tuning
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+      POSTGRES_WORK_MEM: 16MB
+      POSTGRES_MAINTENANCE_WORK_MEM: 128MB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wheeluser -d wheel_inventory"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wheel_network
+    restart: unless-stopped
+
+  # Automated backup service
+  backup:
+    image: postgres:15-alpine
+    container_name: wheel_inventory_backup
+    depends_on:
+      - postgres
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: wheeluser
+      PGPASSWORD: wheelpass
+      PGDATABASE: wheel_inventory
+      BACKUP_DIR: /backups
+      BACKUP_KEEP_DAYS: 7
+    volumes:
+      - ./backups:/backups
+      - ./backup-script.sh:/backup-script.sh
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Installing crond..."
+        apk add --no-cache dcron
+        chmod +x /backup-script.sh
+        echo "0 2 * * * /backup-script.sh" | crontab -
+        echo "Backup service started - daily backups at 2 AM"
+        crond -f -l 2
+    networks:
+      - wheel_network
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: wheel_inventory_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: wheeluser
+      DB_PASSWORD: wheelpass
+      DB_NAME: wheel_inventory
+      NODE_ENV: production
+      # Redis cache config (optional - will work without it)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - wheel_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional Redis for caching (performance boost)
+  redis:
+    image: redis:7-alpine
+    container_name: wheel_inventory_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - wheel_network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  frontend:
+    build: ./frontend
+    container_name: wheel_inventory_frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - wheel_network
+    restart: unless-stopped
+
+networks:
+  wheel_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
