@@ -1,26 +1,52 @@
-# 🚗 OEM Subaru Wheel Inventory System v2.0
+# 🚗 OEM Subaru Wheel Inventory System v2.2
 
-Professional inventory management system with advanced features for tracking OEM Subaru take-off wheels.
+**Vision UI Dashboard Edition** - Professional inventory management system with cutting-edge UI design
 
 ## 🎯 Overview
 
-This is a fully containerized, production-ready inventory management system built with:
+A fully containerized, production-ready inventory management system featuring a stunning Vision UI-inspired dark theme with:
 - **Backend**: Node.js + Express + PostgreSQL
-- **Frontend**: React + Tailwind CSS
+- **Frontend**: React + Tailwind CSS + Vision UI Design System
 - **Database**: PostgreSQL 15 with performance optimizations
 - **Cache**: Redis for improved performance
 - **Deployment**: Docker Compose
 
-## ✨ Features
+## ✨ What's New in v2.2 - Vision UI Edition
+
+### 🎨 Complete UI Overhaul
+- **Dark Theme with Gradients**: Beautiful dark interface with blue and purple gradient accents
+- **Glassmorphism Effects**: Frosted glass backdrop blur effects on all cards and modals
+- **Glowing Cards**: Animated gradient borders that glow on hover
+- **Modern Animations**: Smooth transitions, hover effects, and pulsing indicators
+- **Improved Typography**: Better hierarchy with gradient text and enhanced readability
+- **Responsive Icons**: All-new icon set with improved visual weight
+
+### 🌈 Design Elements
+- **Animated Background**: Subtle animated gradient orbs in the background
+- **Gradient Buttons**: Eye-catching gradient buttons with glow effects
+- **Badge System**: Color-coded grade badges with borders and transparency
+- **Status Indicators**: Pulsing status dots in the footer
+- **Card Hover Effects**: Cards respond with glowing border animations
+- **Loading States**: Modern spinner with gradient effects
+
+### 📊 Enhanced Components
+- **Summary Cards**: Redesigned with gradient borders and glow effects
+- **Data Table**: Dark theme with hover states and improved contrast
+- **Modals**: Glassmorphism modals with backdrop blur
+- **Form Inputs**: Modern inputs with focus states and gradients
+- **Action Buttons**: Icon buttons with colored backgrounds and borders
+
+## 🚀 Features
 
 ### Core Functionality
 - ✅ Complete CRUD operations for wheel inventory
-- ✅ Auto-generated SKU with sequential counters
+- ✅ Auto-generated UPC-A SKU with sequential counters
 - ✅ Status tracking (Available/Sold)
 - ✅ Real-time summary statistics
 - ✅ Modal-based form interface
+- ✅ Model filtering system
 
-### Technical Improvements (NEW in v2.0)
+### Technical Improvements (from v2.0)
 
 #### 📦 Automated Backup & Restore
 - **Daily automated backups** at 2 AM
@@ -37,21 +63,32 @@ This is a fully containerized, production-ready inventory management system buil
 - **Slow query detection** (logs queries >1s)
 
 #### 🧪 Comprehensive Testing
-- **Backend API tests** with Jest + Supertest
-  - Health check tests
-  - CRUD operation tests
-  - Performance tests
-  - Error handling tests
-- **Frontend component tests** with React Testing Library
-  - Component rendering tests
-  - User interaction tests
-  - Form submission tests
-  - State management tests
+- **Backend API tests** with Jest + Supertest (24 test cases)
+- **Frontend component tests** with React Testing Library (15 test cases)
+- 95%+ backend code coverage
+- 90%+ frontend code coverage
 
 #### 📋 PDF Generation
 - **Print Labels** - 4x3" thermal labels with SKU, specs, and price
 - **Generate Invoices** - Professional invoices for sold items
 - Direct download via browser
+
+## 📸 Screenshots
+
+### Main Dashboard
+- Dark theme with gradient accents
+- Glowing summary cards
+- Animated background effects
+
+### Data Table
+- Modern dark table design
+- Gradient badges for grades
+- Icon-based action buttons
+
+### Modal Forms
+- Glassmorphism modals
+- Backdrop blur effects
+- Modern form inputs
 
 ## 🚀 Quick Start
 
@@ -63,7 +100,7 @@ This is a fully containerized, production-ready inventory management system buil
 ### Installation
 
 ```bash
-# Clone or create the project directory
+# Clone or navigate to project directory
 cd wheel-inventory
 
 # Start all services
@@ -72,7 +109,6 @@ docker-compose up --build
 # Access the application
 # Frontend: http://localhost:3000
 # Backend API: http://localhost:3001
-# Database: localhost:5432
 ```
 
 ### First Time Setup
@@ -82,16 +118,38 @@ The database will automatically initialize with:
 - Audit logging table
 - Sample data (3 wheels)
 
+## 🎨 Design System
+
+### Color Palette
+- **Primary**: Blue (#3B82F6) to Purple (#9333EA) gradients
+- **Success**: Green (#10B981) to Emerald (#059669)
+- **Warning**: Yellow (#F59E0B)
+- **Danger**: Red (#EF4444) to Pink (#EC4899)
+- **Background**: Dark gray (#111827) to blue-gray (#1E293B)
+
+### Typography
+- **Headings**: Bold, white with gradient effects
+- **Body**: Gray-300 for readability
+- **Labels**: Gray-400 for form labels
+- **Links**: Blue-400 with hover to Blue-300
+
+### Spacing
+- Cards: 6-8 spacing units
+- Sections: 8-12 spacing units
+- Form elements: 4 spacing units
+
 ## 📚 Usage Guide
 
 ### Managing Inventory
 
-1. **Add Wheel**: Click "Add New Wheel" button
+1. **Add Wheel**: Click the gradient "Add New Wheel" button
 2. **View Details**: Switch between Available/Sold tabs
-3. **Print Label**: Click label icon to generate PDF
-4. **Generate Invoice**: Click invoice icon (sold items only)
-5. **Update Status**: Click toggle icon to mark as sold/available
-6. **Delete**: Click trash icon (with confirmation)
+3. **Print Label**: Click purple label icon to generate PDF
+4. **Generate Invoice**: Click blue invoice icon (sold items only)
+5. **Update Status**: Click status toggle icon
+6. **Delete**: Click red trash icon (with confirmation)
+7. **Filter**: Use model dropdown to filter by vehicle model
+8. **View Barcode**: Click on SKU to view barcode label
 
 ### API Endpoints
 
@@ -164,14 +222,83 @@ docker exec wheel_inventory_frontend npm test
 docker exec wheel_inventory_frontend npm run test:watch
 ```
 
-### Test Coverage
+## 📦 Updating Your Local Docker Image
 
-The system includes:
-- ✅ 95%+ backend code coverage
-- ✅ 90%+ frontend code coverage
-- ✅ All critical paths tested
-- ✅ Error handling validated
-- ✅ Performance benchmarks
+After downloading the updated v2.2 files, follow these steps to update your running system:
+
+### Option 1: Complete Rebuild (Recommended)
+
+```bash
+# Stop all running containers
+docker-compose down
+
+# Remove old images (optional but recommended for major UI updates)
+docker-compose down --rmi all
+
+# Rebuild with no cache to ensure fresh build
+docker-compose build --no-cache
+
+# Start the updated system
+docker-compose up -d
+
+# Verify the update
+docker-compose ps
+curl http://localhost:3001/api/health
+```
+
+### Option 2: Quick Update
+
+```bash
+# Stop and rebuild specific service (if only frontend changed)
+docker-compose stop frontend
+docker-compose build frontend
+docker-compose up -d frontend
+
+# Or rebuild everything
+docker-compose up -d --build
+```
+
+### Option 3: Using Make Commands
+
+```bash
+# If you have the Makefile
+make stop
+make rebuild
+make start
+
+# Verify
+make health
+```
+
+### Verification Steps
+
+After updating, verify the changes:
+
+1. **Check Version**: Look for "v2.2 - Vision UI Design" in the footer
+2. **Visual Check**: Confirm dark theme with gradient effects
+3. **Test Functionality**: Add a wheel, toggle status, print label
+4. **Check Logs**: `docker-compose logs -f` to ensure no errors
+
+### Troubleshooting Update Issues
+
+```bash
+# If frontend doesn't show changes
+docker-compose build --no-cache frontend
+docker-compose up -d frontend
+
+# Clear browser cache
+# Chrome/Edge: Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)
+# Firefox: Ctrl+F5 (Windows) or Cmd+Shift+R (Mac)
+
+# If services won't start
+docker-compose down -v  # Warning: removes volumes
+docker-compose up -d --build
+
+# Check service status
+docker-compose ps
+docker-compose logs frontend
+docker-compose logs backend
+```
 
 ## ⚙️ Configuration
 
@@ -191,7 +318,7 @@ NODE_ENV: production
 
 ### Performance Tuning
 
-PostgreSQL settings (in `docker-compose.yml`):
+PostgreSQL settings:
 - `POSTGRES_SHARED_BUFFERS`: 256MB
 - `POSTGRES_EFFECTIVE_CACHE_SIZE`: 1GB
 - `POSTGRES_WORK_MEM`: 16MB
@@ -222,25 +349,15 @@ created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ```
 
-### Indexes (Performance)
-- `idx_wheels_status` - Filter by status
+### Performance Indexes
+- `idx_wheels_status` - Status filtering
 - `idx_wheels_sku` - Unique lookups
-- `idx_wheels_part_number` - Part number searches
+- `idx_wheels_part_number` - Part searches
 - `idx_wheels_model` - Model filtering
 - `idx_wheels_year` - Year filtering
 - `idx_wheels_created_at` - Time-based queries
 - `idx_wheels_sold_at` - Sold date queries
-- Composite indexes for common query patterns
-
-### Audit Table
-```sql
-audit_id        SERIAL PRIMARY KEY
-wheel_id        INTEGER
-action          VARCHAR(20)
-old_data        JSONB
-new_data        JSONB
-changed_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-```
+- Composite indexes for common patterns
 
 ## 🔍 Monitoring & Logs
 
@@ -252,6 +369,7 @@ docker-compose logs -f
 
 # Specific service
 docker-compose logs -f backend
+docker-compose logs -f frontend
 docker-compose logs -f postgres
 docker-compose logs -f redis
 
@@ -270,19 +388,6 @@ curl http://localhost:3000/health
 
 # Database health
 docker exec wheel_inventory_db pg_isready -U wheeluser
-```
-
-### Performance Metrics
-
-```bash
-# Check Redis cache stats
-docker exec wheel_inventory_redis redis-cli INFO stats
-
-# Database connection stats
-docker exec wheel_inventory_db psql -U wheeluser -d wheel_inventory -c "SELECT * FROM pg_stat_activity;"
-
-# Slow queries
-docker-compose logs backend | grep "Slow query"
 ```
 
 ## 🛠️ Maintenance
@@ -313,54 +418,7 @@ docker-compose build --no-cache backend
 docker-compose up --build --force-recreate
 ```
 
-### Database Maintenance
-
-```bash
-# Vacuum database
-docker exec wheel_inventory_db psql -U wheeluser -d wheel_inventory -c "VACUUM ANALYZE;"
-
-# Check database size
-docker exec wheel_inventory_db psql -U wheeluser -d wheel_inventory -c "SELECT pg_size_pretty(pg_database_size('wheel_inventory'));"
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Database Connection Issues**
-```bash
-# Check if database is running
-docker ps | grep postgres
-
-# Check database logs
-docker-compose logs postgres
-
-# Verify credentials
-docker exec wheel_inventory_db psql -U wheeluser -d wheel_inventory -c "SELECT 1;"
-```
-
-**Cache Not Working**
-```bash
-# Check Redis status
-docker exec wheel_inventory_redis redis-cli PING
-
-# View cache keys
-docker exec wheel_inventory_redis redis-cli KEYS '*'
-
-# Clear cache manually
-docker exec wheel_inventory_redis redis-cli FLUSHALL
-```
-
-**Frontend Not Updating**
-```bash
-# Hard refresh browser: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)
-
-# Rebuild frontend
-docker-compose build --no-cache frontend
-docker-compose up -d frontend
-```
-
-## 📈 Performance Benchmarks
+## 📈 Performance Metrics
 
 With Redis caching enabled:
 - `/api/wheels` response time: **~15ms** (vs 120ms without cache)
@@ -378,34 +436,38 @@ With Redis caching enabled:
 - ✅ CORS configured
 - ✅ Database credentials in environment variables
 
-## 📦 Project Structure
+## 📝 Changelog
 
-```
-wheel-inventory/
-├── backend/
-│   ├── server.js              # Express server with caching & PDF
-│   ├── server.test.js         # API tests
-│   ├── package.json
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── App.js            # Main React component
-│   │   ├── App.test.js       # Component tests
-│   │   ├── index.js
-│   │   └── setupTests.js
-│   ├── public/
-│   │   └── index.html
-│   ├── build.js              # esbuild bundler
-│   ├── nginx.conf            # Nginx config with caching
-│   ├── package.json
-│   └── Dockerfile
-├── backups/                   # Automated backups directory
-├── docker-compose.yml         # Service orchestration
-├── init.sql                   # Database schema with indexes
-├── backup-script.sh           # Automated backup script
-├── restore.sh                 # Restore script
-└── README.md                  # This file
-```
+### Version 2.2.0 - Vision UI Edition (November 2025)
+- ✨ Complete UI redesign with Vision UI Dashboard inspiration
+- 🎨 Dark theme with gradient accents throughout
+- ✨ Glassmorphism effects on modals and cards
+- 🌟 Glowing border animations on hover
+- 🎭 Animated background with gradient orbs
+- 💫 Modern loading states and transitions
+- 🎯 Improved iconography and visual hierarchy
+- 📱 Enhanced mobile responsiveness
+- 🔄 Updated version to 2.2 across all files
+
+### Version 2.1.0 (November 2025)
+- 🔲 Added intelligent UPC-A SKU generation
+- 📊 Added barcode label generation with PDF export
+- 🎯 Added model filtering dropdown
+- 🔄 Improved SKU format and display
+- 📱 Enhanced mobile responsiveness
+
+### Version 2.0.0 - Production Ready (November 2025)
+- 📦 Automated backup and restore system
+- ⚡ Performance optimizations (Redis, indexes)
+- 🧪 Comprehensive test suite (39 tests)
+- 📋 PDF label and invoice generation
+- 📚 Complete documentation suite
+- 🚀 One-command deployment
+
+### Version 1.0.0 - Initial Release
+- ✅ Basic CRUD operations
+- 📊 Summary statistics
+- 🎨 Basic UI with Tailwind CSS
 
 ## 🎓 Development
 
@@ -432,9 +494,16 @@ For issues or questions:
 1. Check logs: `docker-compose logs`
 2. Verify health: `curl http://localhost:3001/api/health`
 3. Review this README
+4. Check `IMPLEMENTATION_SUMMARY.md` for technical details
+
+## 🎯 Credits
+
+- **UI Design Inspiration**: [Vision UI Dashboard](https://demos.creative-tim.com/vision-ui-dashboard-react) by Simmmple & Creative Tim
+- **Color Scheme**: Dark theme with blue/purple gradients
+- **Effects**: Glassmorphism and gradient animations
 
 ---
 
-**Version**: 2.0.0 - Enhanced Edition  
+**Version**: 2.2.0 - Vision UI Edition  
 **Last Updated**: November 2025  
-**Status**: ✅ Production Ready
+**Status**: ✅ Production Ready with Modern UI
