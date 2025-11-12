@@ -17,10 +17,11 @@ function App() {
   const [scannedCode, setScannedCode] = useState('');
   const [scanBuffer, setScanBuffer] = useState('');
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [scanStatus, setScanStatus] = useState('');
   const barcodeRef = useRef(null);
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
   const scanTimeoutRef = useRef(null);
+  const quaggaInitialized = useRef(false);
   const [formData, setFormData] = useState({
     part_number: '',
     size: '',
@@ -84,6 +85,7 @@ function App() {
 
   const handleScannedBarcode = async (code) => {
     setScannedCode(code);
+    setScanStatus('Searching...');
     
     // Search for wheel with this SKU
     const wheel = wheels.find(w => w.sku === code);
@@ -91,83 +93,115 @@ function App() {
     if (wheel) {
       setSelectedWheel(wheel);
       setShowScanModal(false);
+      setScanStatus('');
       
       // Show a success message
       setError(null);
       alert(`Found wheel: ${wheel.model} ${wheel.year} - ${wheel.size}\nSKU: ${wheel.sku}\nPrice: $${wheel.retail_price}`);
     } else {
       setError(`No wheel found with SKU: ${code}`);
-      setTimeout(() => setError(null), 3000);
+      setScanStatus('Not found');
+      setTimeout(() => {
+        setError(null);
+        setScanStatus('');
+      }, 3000);
     }
   };
 
-  // Camera Barcode Scanner
+  // Camera Barcode Scanner with Quagga.js
   const startCameraScanner = async () => {
+    if (quaggaInitialized.current) return;
+    
     setIsCameraActive(true);
+    setScanStatus('Starting camera...');
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'environment', // Use back camera on mobile
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+      // Check if Quagga is available
+      if (!window.Quagga) {
+        throw new Error('Quagga library not loaded. Please refresh the page.');
+      }
+
+      const constraints = {
+        inputStream: {
+          name: "Live",
+          type: "LiveStream",
+          target: videoRef.current,
+          constraints: {
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
+            facingMode: "environment", // Use back camera on mobile
+            aspectRatio: { min: 1, max: 2 }
+          }
+        },
+        decoder: {
+          readers: [
+            "upc_reader",
+            "upc_e_reader",
+            "ean_reader"
+          ],
+          debug: {
+            drawBoundingBox: true,
+            showFrequency: false,
+            drawScanline: true,
+            showPattern: false
+          },
+          multiple: false
+        },
+        locator: {
+          patchSize: "medium",
+          halfSample: true
+        },
+        locate: true,
+        numOfWorkers: navigator.hardwareConcurrency || 4,
+        frequency: 10
+      };
+
+      window.Quagga.init(constraints, function(err) {
+        if (err) {
+          console.error('Quagga initialization error:', err);
+          setError('Unable to start camera. Please check permissions and try again.');
+          setIsCameraActive(false);
+          setScanStatus('');
+          return;
+        }
+        
+        console.log("Quagga initialization finished. Ready to start");
+        window.Quagga.start();
+        quaggaInitialized.current = true;
+        setScanStatus('Scanning... Point camera at barcode');
+      });
+
+      // Handle detected barcodes
+      window.Quagga.onDetected(function(result) {
+        if (result && result.codeResult && result.codeResult.code) {
+          const code = result.codeResult.code;
+          console.log("Barcode detected:", code);
+          
+          // Only process if it looks like a UPC-A (12 digits)
+          if (/^\d{12}$/.test(code)) {
+            setScanStatus('Barcode detected!');
+            handleScannedBarcode(code);
+            stopCameraScanner();
+          }
         }
       });
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        
-        // Start scanning loop
-        scanBarcodeFromCamera();
-      }
+
     } catch (err) {
       console.error('Camera access error:', err);
-      setError('Unable to access camera. Please check permissions.');
+      setError('Unable to access camera. Please check permissions: Settings → Safari → Camera');
       setIsCameraActive(false);
+      setScanStatus('');
     }
   };
 
   const stopCameraScanner = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
+    if (quaggaInitialized.current && window.Quagga) {
+      window.Quagga.stop();
+      window.Quagga.offDetected();
+      quaggaInitialized.current = false;
     }
     setIsCameraActive(false);
-  };
-
-  const scanBarcodeFromCamera = () => {
-    if (!videoRef.current || !canvasRef.current || !isCameraActive) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      
-      // Use jsQR library if available (we'll need to add this)
-      if (window.jsQR) {
-        const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert",
-        });
-
-        if (code) {
-          handleScannedBarcode(code.data);
-          stopCameraScanner();
-          return;
-        }
-      }
-    }
-
-    // Continue scanning
-    if (isCameraActive) {
-      requestAnimationFrame(scanBarcodeFromCamera);
-    }
+    setScanStatus('');
   };
 
   useEffect(() => {
@@ -376,7 +410,7 @@ function App() {
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                 🚗 OEM Subaru Wheel Inventory
               </h1>
-              <p className="text-gray-400 mt-1 text-sm">Vision UI Dashboard - Professional Inventory Management v2.2</p>
+              <p className="text-gray-400 mt-1 text-sm">Vision UI Dashboard - Professional Inventory Management v2.2.1</p>
             </div>
             <div className="flex gap-3">
               <button
@@ -732,17 +766,12 @@ function App() {
               {/* Camera Scanner Mode */}
               {scanMode === 'camera' && (
                 <div className="bg-gray-700/30 border border-white/10 rounded-xl p-4">
-                  <div className="relative bg-black rounded-lg overflow-hidden" style={{paddingBottom: '56.25%'}}>
-                    <video
-                      ref={videoRef}
-                      className="absolute inset-0 w-full h-full object-cover"
-                      autoPlay
-                      playsInline
-                    />
-                    <canvas
-                      ref={canvasRef}
-                      className="hidden"
-                    />
+                  <div 
+                    ref={videoRef}
+                    id="barcode-scanner"
+                    className="relative bg-black rounded-lg overflow-hidden"
+                    style={{height: '400px'}}
+                  >
                     {!isCameraActive && (
                       <div className="absolute inset-0 flex items-center justify-center bg-gray-900/90">
                         <div className="text-center">
@@ -750,22 +779,24 @@ function App() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
-                          <p className="text-white">Camera Loading...</p>
+                          <p className="text-white">Starting Camera...</p>
                         </div>
                       </div>
                     )}
-                    {isCameraActive && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="border-2 border-blue-500 w-64 h-32 rounded-lg shadow-lg shadow-blue-500/50"></div>
-                      </div>
-                    )}
                   </div>
+                  {scanStatus && (
+                    <div className="text-center mt-4">
+                      <p className="text-blue-400 font-semibold">{scanStatus}</p>
+                    </div>
+                  )}
                   <p className="text-center text-gray-400 text-sm mt-4">
-                    Position barcode within the blue box
+                    Position barcode in the center of the camera view
                   </p>
-                  <p className="text-center text-gray-500 text-xs mt-2">
-                    Note: Camera scanning requires jsQR library. Make sure it's loaded in your HTML.
-                  </p>
+                  <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <p className="text-xs text-blue-300">
+                      <strong>iPhone Tip:</strong> Make sure camera permission is enabled in Settings → Safari → Camera
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -1013,7 +1044,7 @@ function App() {
       <footer className="relative z-10 bg-gray-900/50 backdrop-blur-xl border-t border-white/10 mt-12">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
-            <p>© 2025 Wheel Inventory System v2.2 - Vision UI Design + Barcode Scanning</p>
+            <p>© 2025 Wheel Inventory System v2.2.1 - Vision UI Design + Barcode Scanning (Quagga.js)</p>
             <div className="flex gap-6">
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
